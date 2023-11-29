@@ -14,8 +14,11 @@
 
 """A sample skeleton vehicle app."""
 import os
+import time
 
 os.system("python3 -m pip install pymysql")
+time.sleep(10)
+print("sql installed")
 import asyncio
 import json
 import logging
@@ -23,6 +26,7 @@ import signal
 from datetime import datetime
 
 import pymysql
+from kuksa_client.grpc import VSSClient
 from vehicle import Vehicle, vehicle  # type: ignore
 from velocitas_sdk.util.log import (  # type: ignore
     get_opentelemetry_log_factory,
@@ -30,8 +34,6 @@ from velocitas_sdk.util.log import (  # type: ignore
 )
 from velocitas_sdk.vdb.reply import DataPointReply
 from velocitas_sdk.vehicle_app import VehicleApp, subscribe_topic
-
-# from kuksa_client.grpc import VSSClient
 
 # Configure the VehicleApp logger with the necessary log config and level.
 logging.setLogRecordFactory(get_opentelemetry_log_factory())

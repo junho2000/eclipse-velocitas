@@ -14,10 +14,10 @@
 
 """A sample skeleton vehicle app."""
 import asyncio
-import json
 import logging
 import signal
 from datetime import datetime
+
 import pymysql
 from vehicle import Vehicle, vehicle  # type: ignore
 from velocitas_sdk.util.log import (  # type: ignore
@@ -25,43 +25,13 @@ from velocitas_sdk.util.log import (  # type: ignore
     get_opentelemetry_log_format,
 )
 from velocitas_sdk.vdb.reply import DataPointReply
-from velocitas_sdk.vehicle_app import VehicleApp, subscribe_topic
+from velocitas_sdk.vehicle_app import VehicleApp
 
 # Configure the VehicleApp logger with the necessary log config and level.
 logging.setLogRecordFactory(get_opentelemetry_log_factory())
 logging.basicConfig(format=get_opentelemetry_log_format())
 logging.getLogger().setLevel("DEBUG")
 logger = logging.getLogger(__name__)
-
-# Speed
-GET_SPEED_REQUEST_TOPIC = "jetracerapp/getSpeed"
-GET_SPEED_RESPONSE_TOPIC = "jetracerapp/getSpeed/response"
-DATABROKER_SUBSCRIPTION_TOPIC_SPEED = "jetracerapp/currentSpeed"
-
-# Angle
-GET_ANGLE_REQUEST_TOPIC = "jetracerapp/getAngle"
-GET_ANGLE_RESPONSE_TOPIC = "jetracerapp/getAngle/response"
-DATABROKER_SUBSCRIPTION_TOPIC_ANGLE = "jetracerapp/currentAngle"
-
-# Battery
-GET_BATTERY_REQUEST_TOPIC = "jetracerapp/getBattery"
-GET_BATTERY_RESPONSE_TOPIC = "jetracerapp/getBattery/response"
-DATABROKER_SUBSCRIPTION_TOPIC_BATTERY = "jetracerapp/currentBattery"
-
-# Temperature
-GET_TEMP_REQUEST_TOPIC = "jetracerapp/getTemp"
-GET_TEMP_RESPONSE_TOPIC = "jetracerapp/getTemp/response"
-DATABROKER_SUBSCRIPTION_TOPIC_TEMP = "jetracerapp/currentTemp"
-
-# Air
-GET_AIR_REQUEST_TOPIC = "jetracerapp/getAir"
-GET_AIR_RESPONSE_TOPIC = "jetracerapp/getAir/response"
-DATABROKER_SUBSCRIPTION_TOPIC_AIR = "jetracerapp/currentAir"
-
-# Window
-GET_WINDOW_REQUEST_TOPIC = "jetracerapp/getWindow"
-GET_WINDOW_RESPONSE_TOPIC = "jetracerapp/getWindow/response"
-DATABROKER_SUBSCRIPTION_TOPIC_WINDOW = "jetracerapp/currentWindow"
 
 
 def is_mysql_connected(connection):
@@ -94,7 +64,7 @@ class SampleApp(VehicleApp):
         # Data Set for SQL
         self.data_id = 0
         self.time = datetime.now()
-        self.personal_id = "jetracer"
+        self.personal_id = "piracer"
         self.speed = 0.0
         self.angle = 0
         self.battery = 0.0
@@ -106,30 +76,23 @@ class SampleApp(VehicleApp):
         """Run when the vehicle app starts"""
         # Here you can subscribe for the Vehicle Signals update (e.g. Vehicle Speed).
         await self.Vehicle.Speed.subscribe(self.on_speed_change)
-        # await self.Vehicle.Chassis.SteeringWheel.Angle.subscribe(self.on_angle_change)
-        # await self.Vehicle.Powertrain.TractionBattery.StateOfCharge.Current.subscribe(
-        #     self.on_current_change
-        # )
-        # await self.Vehicle.Powertrain.ElectricMotor.Temperature.subscribe(
-        #     self.on_temperature_change
-        # )
-        # await self.Vehicle.Cabin.HVAC.IsAirConditioningActive.subscribe(
-        #     self.on_isairconditioningactive_change
-        # )
-        # await self.Vehicle.Cabin.Door.Row1.Left.Window.Position.subscribe(
-        #     self.on_position_change
-        # )
+        await self.Vehicle.Chassis.SteeringWheel.Angle.subscribe(self.on_angle_change)
+        await self.Vehicle.Powertrain.TractionBattery.StateOfCharge.Current.subscribe(
+            self.on_current_change
+        )
+        await self.Vehicle.Powertrain.ElectricMotor.Temperature.subscribe(
+            self.on_temperature_change
+        )
+        await self.Vehicle.Cabin.HVAC.IsAirConditioningActive.subscribe(
+            self.on_isairconditioningactive_change
+        )
+        await self.Vehicle.Cabin.Door.Row1.Left.Window.Position.subscribe(
+            self.on_position_change
+        )
 
     async def on_speed_change(self, data: DataPointReply):
-        # Get the current vehicle speed value
         self.time = datetime.now()
         self.speed = data.get(self.Vehicle.Speed).value
-
-        # Publishes current speed to MQTT Topic.
-        await self.publish_event(
-            DATABROKER_SUBSCRIPTION_TOPIC_SPEED,
-            json.dumps({"speed": self.speed}),
-        )
 
         # SQL insert statement.
         insert_stmt = (
@@ -163,225 +126,27 @@ class SampleApp(VehicleApp):
             self.connection.rollback()
 
     async def on_angle_change(self, data: DataPointReply):
-        """The on_speed_change callback, this will be executed when receiving a new
-        vehicle signal updates."""
-        # Get the current vehicle speed value from the received DatapointReply.
-        # The DatapointReply containes the values of all subscribed DataPoints of
-        # the same callback.
-        self.angle = data.get(self.Vehicle.Speed).value
-
-        # Do anything with the received value.
-        # Example:
-        # - Publishes current speed to MQTT Topic (i.e. DATABROKER_SUBSCRIPTION_TOPIC).
-        await self.publish_event(
-            DATABROKER_SUBSCRIPTION_TOPIC_ANGLE,
-            json.dumps({"angle": self.angle}),
-        )
+        self.angle = data.get(self.Vehicle.Chassis.SteeringWheel.Angle).value
 
     async def on_current_change(self, data: DataPointReply):
-        """The on_speed_change callback, this will be executed when receiving a new
-        vehicle signal updates."""
-        # Get the current vehicle speed value from the received DatapointReply.
-        # The DatapointReply containes the values of all subscribed DataPoints of
-        # the same callback.
-        self.battery = data.get(self.Vehicle.Speed).value
-
-        # Do anything with the received value.
-        # Example:
-        # - Publishes current speed to MQTT Topic (i.e. DATABROKER_SUBSCRIPTION_TOPIC).
-        await self.publish_event(
-            DATABROKER_SUBSCRIPTION_TOPIC_BATTERY,
-            json.dumps({"battery": self.battery}),
-        )
+        self.battery = data.get(
+            self.Vehicle.Powertrain.TractionBattery.StateOfCharge.Current
+        ).value
 
     async def on_temperature_change(self, data: DataPointReply):
-        """The on_speed_change callback, this will be executed when receiving a new
-        vehicle signal updates."""
-        # Get the current vehicle speed value from the received DatapointReply.
-        # The DatapointReply containes the values of all subscribed DataPoints of
-        # the same callback.
-        self.motor_temp = data.get(self.Vehicle.Speed).value
-
-        # Do anything with the received value.
-        # Example:
-        # - Publishes current speed to MQTT Topic (i.e. DATABROKER_SUBSCRIPTION_TOPIC).
-        await self.publish_event(
-            DATABROKER_SUBSCRIPTION_TOPIC_TEMP,
-            json.dumps({"motor temperature": self.motor_temp}),
-        )
+        self.motor_temp = data.get(
+            self.Vehicle.Powertrain.ElectricMotor.Temperature
+        ).value
 
     async def on_isairconditioningactive_change(self, data: DataPointReply):
-        """The on_speed_change callback, this will be executed when receiving a new
-        vehicle signal updates."""
-        # Get the current vehicle speed value from the received DatapointReply.
-        # The DatapointReply containes the values of all subscribed DataPoints of
-        # the same callback.
-        self.is_aircondition_active = data.get(self.Vehicle.Speed).value
-
-        # Do anything with the received value.
-        # Example:
-        # - Publishes current speed to MQTT Topic (i.e. DATABROKER_SUBSCRIPTION_TOPIC).
-        await self.publish_event(
-            DATABROKER_SUBSCRIPTION_TOPIC_AIR,
-            json.dumps({"is aircondition active": self.is_aircondition_active}),
-        )
+        self.is_aircondition_active = data.get(
+            self.Vehicle.Cabin.HVAC.IsAirConditioningActive
+        ).value
 
     async def on_position_change(self, data: DataPointReply):
-        """The on_speed_change callback, this will be executed when receiving a new
-        vehicle signal updates."""
-        # Get the current vehicle speed value from the received DatapointReply.
-        # The DatapointReply containes the values of all subscribed DataPoints of
-        # the same callback.
-        self.window_position = data.get(self.Vehicle.Speed).value
-
-        # Do anything with the received value.
-        # Example:
-        # - Publishes current speed to MQTT Topic (i.e. DATABROKER_SUBSCRIPTION_TOPIC).
-        await self.publish_event(
-            DATABROKER_SUBSCRIPTION_TOPIC_WINDOW,
-            json.dumps({"speed": self.window_position}),
-        )
-
-    @subscribe_topic(GET_SPEED_REQUEST_TOPIC)
-    async def on_get_speed_request_received(self, data: str) -> None:
-        """The subscribe_topic annotation is used to subscribe for incoming
-        PubSub events, e.g. MQTT event for GET_SPEED_REQUEST_TOPIC.
-        """
-
-        # Use the logger with the preferred log level (e.g. debug, info, error, etc)
-        logger.debug(
-            "PubSub event for the Topic: %s -> is received with the data: %s",
-            GET_SPEED_REQUEST_TOPIC,
-            data,
-        )
-
-        # Getting current speed from VehicleDataBroker using the DataPoint getter.
-        vehicle_speed = (await self.Vehicle.Speed.get()).value
-
-        # Do anything with the speed value.
-        # Example:
-        # - Publishes the vehicle speed to MQTT topic (i.e. GET_SPEED_RESPONSE_TOPIC).
-        await self.publish_event(
-            GET_SPEED_RESPONSE_TOPIC,
-            json.dumps(
-                {
-                    "result": {
-                        "status": 0,
-                        "message": f"""Current Speed = {vehicle_speed}""",
-                    },
-                }
-            ),
-        )
-
-    @subscribe_topic(GET_ANGLE_REQUEST_TOPIC)
-    async def on_get_angle_request_received(self, data: str) -> None:
-        logger.debug(
-            "PubSub event for the Topic: %s -> is received with the data: %s",
-            GET_ANGLE_REQUEST_TOPIC,
-            data,
-        )
-
-        vehicle_angle = (await self.Vehicle.Speed.get()).value
-
-        await self.publish_event(
-            GET_ANGLE_RESPONSE_TOPIC,
-            json.dumps(
-                {
-                    "result": {
-                        "status": 0,
-                        "message": f"""Current Angle = {vehicle_angle}""",
-                    },
-                }
-            ),
-        )
-
-    @subscribe_topic(GET_BATTERY_REQUEST_TOPIC)
-    async def on_get_current_request_received(self, data: str) -> None:
-        logger.debug(
-            "PubSub event for the Topic: %s -> is received with the data: %s",
-            GET_BATTERY_REQUEST_TOPIC,
-            data,
-        )
-
-        vehicle_battery = (await self.Vehicle.Speed.get()).value
-
-        await self.publish_event(
-            GET_ANGLE_RESPONSE_TOPIC,
-            json.dumps(
-                {
-                    "result": {
-                        "status": 0,
-                        "message": f"""Current Battery = {vehicle_battery}""",
-                    },
-                }
-            ),
-        )
-
-    @subscribe_topic(GET_TEMP_REQUEST_TOPIC)
-    async def on_get_temperature_request_received(self, data: str) -> None:
-        logger.debug(
-            "PubSub event for the Topic: %s -> is received with the data: %s",
-            GET_TEMP_REQUEST_TOPIC,
-            data,
-        )
-
-        vehicle_temperature = (await self.Vehicle.Speed.get()).value
-
-        await self.publish_event(
-            GET_TEMP_RESPONSE_TOPIC,
-            json.dumps(
-                {
-                    "result": {
-                        "status": 0,
-                        "message": f"""Current Temperature = {vehicle_temperature}""",
-                    },
-                }
-            ),
-        )
-
-    @subscribe_topic(GET_AIR_REQUEST_TOPIC)
-    async def on_get_isairconditioningactive_request_received(self, data: str) -> None:
-        logger.debug(
-            "PubSub event for the Topic: %s -> is received with the data: %s",
-            GET_AIR_REQUEST_TOPIC,
-            data,
-        )
-
-        vehicle_airconditioning = (await self.Vehicle.Speed.get()).value
-
-        await self.publish_event(
-            GET_AIR_RESPONSE_TOPIC,
-            json.dumps(
-                {
-                    "result": {
-                        "status": 0,
-                        "message": f"""Current AirC = {vehicle_airconditioning}""",
-                    },
-                }
-            ),
-        )
-
-    @subscribe_topic(GET_WINDOW_REQUEST_TOPIC)
-    async def on_get_position_request_received(self, data: str) -> None:
-        logger.debug(
-            "PubSub event for the Topic: %s -> is received with the data: %s",
-            GET_WINDOW_REQUEST_TOPIC,
-            data,
-        )
-
-        vehicle_window = (await self.Vehicle.Speed.get()).value
-
-        await self.publish_event(
-            GET_WINDOW_RESPONSE_TOPIC,
-            json.dumps(
-                {
-                    "result": {
-                        "status": 0,
-                        "message": f"""Current Window Position = {vehicle_window}""",
-                    },
-                }
-            ),
-        )
+        self.window_position = data.get(
+            self.Vehicle.Cabin.Door.Row1.Left.Window.Position
+        ).value
 
 
 async def main():

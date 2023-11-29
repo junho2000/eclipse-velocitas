@@ -13,7 +13,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """A sample skeleton vehicle app."""
+import os
 
+os.system("python3 -m pip install pymysql")
 import asyncio
 import json
 import logging

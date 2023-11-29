@@ -13,20 +13,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """A sample skeleton vehicle app."""
-import os
-import time
-
-os.system("python3 -m pip install pymysql")
-time.sleep(10)
-print("sql installed")
 import asyncio
 import json
 import logging
 import signal
 from datetime import datetime
-
 import pymysql
-from kuksa_client.grpc import VSSClient
 from vehicle import Vehicle, vehicle  # type: ignore
 from velocitas_sdk.util.log import (  # type: ignore
     get_opentelemetry_log_factory,
